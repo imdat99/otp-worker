@@ -1,0 +1,336 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Cloudflare Workers OTP Service API",
+    "description": "API để tạo và xác thực mã OTP (One-Time Password) sử dụng Cloudflare Workers và Upstash Redis",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Admin",
+      "email": "admin@example.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://cloudflare-otp.example.com",
+      "description": "Production server"
+    },
+    {
+      "url": "http://127.0.0.1:8787",
+      "description": "Development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "OTP",
+      "description": "OTP service operations"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Thông tin API",
+        "description": "Trả về thông tin về API và các endpoints có sẵn",
+        "tags": ["OTP"],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "OTP Service API"
+                    },
+                    "endpoints": {
+                      "type": "object",
+                      "properties": {
+                        "generateOtp": {
+                          "type": "string",
+                          "example": "/api/otp/generate"
+                        },
+                        "verifyOtp": {
+                          "type": "string",
+                          "example": "/api/otp/verify"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/otp/generate": {
+      "post": {
+        "summary": "Tạo mã OTP mới",
+        "description": "Tạo một mã OTP mới cho một identifier cụ thể (email, số điện thoại, username)",
+        "tags": ["OTP"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateOtpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP được tạo thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateOtpSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dữ liệu không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "OTP đã được tạo, đang trong thời gian chờ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TooManyRequestsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/otp/verify": {
+      "post": {
+        "summary": "Xác thực mã OTP",
+        "description": "Xác thực mã OTP đã nhập với mã được lưu trữ",
+        "tags": ["OTP"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyOtpSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "OTP không hợp lệ hoặc đã hết hạn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Lỗi server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "GenerateOtpRequest": {
+        "type": "object",
+        "required": ["identifier", "purpose"],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Định danh của người dùng (email, số điện thoại, username)",
+            "example": "user@example.com"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["email", "phone", "username"],
+            "description": "Loại định danh",
+            "default": "email",
+            "example": "email"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": ["registration", "login", "password-reset", "verification"],
+            "description": "Mục đích sử dụng OTP",
+            "example": "verification"
+          }
+        }
+      },
+      "VerifyOtpRequest": {
+        "type": "object",
+        "required": ["identifier", "otp", "purpose"],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Định danh của người dùng (email, số điện thoại, username)",
+            "example": "user@example.com"
+          },
+          "otp": {
+            "type": "string",
+            "description": "Mã OTP cần xác thực",
+            "example": "123456"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["email", "phone", "username"],
+            "description": "Loại định danh",
+            "default": "email",
+            "example": "email"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": ["registration", "login", "password-reset", "verification"],
+            "description": "Mục đích sử dụng OTP",
+            "example": "verification"
+          }
+        }
+      },
+      "GenerateOtpSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Mã OTP đã được tạo thành công"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "otp": {
+                "type": "string",
+                "description": "Mã OTP (chỉ trả về trong môi trường phát triển)",
+                "example": "123456"
+              },
+              "identifier": {
+                "type": "string",
+                "example": "user@example.com"
+              },
+              "type": {
+                "type": "string",
+                "example": "email"
+              },
+              "purpose": {
+                "type": "string",
+                "example": "verification"
+              },
+              "expiresIn": {
+                "type": "integer",
+                "description": "Thời gian hết hạn (giây)",
+                "example": 300
+              }
+            }
+          }
+        }
+      },
+      "VerifyOtpSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "Xác thực OTP thành công"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "verified": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          }
+        }
+      },
+      "TooManyRequestsResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Mã OTP đã được tạo, vui lòng đợi 280 giây trước khi thử lại."
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "remainingTime": {
+                "type": "integer",
+                "description": "Thời gian còn lại (giây) trước khi có thể yêu cầu OTP mới",
+                "example": 280
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Không thể xác thực mã OTP"
+          },
+          "error": {
+            "type": "string",
+            "description": "Thông tin lỗi chi tiết",
+            "example": "Mã OTP không hợp lệ hoặc đã hết hạn"
+          }
+        }
+      }
+    }
+  }
+}
