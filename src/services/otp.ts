@@ -2,6 +2,7 @@ import { Redis } from "@upstash/redis/cloudflare";
 
 // OTP sẽ hết hạn sau một khoảng thời gian nhất định (tính bằng giây)
 const OTP_EXPIRY_SECONDS = 5 * 60; // 5 phút
+// const OTP_EXPIRY_SECONDS = 10; // 5 phút
 
 export interface OtpOptions {
   length?: number;      // Độ dài của mã OTP

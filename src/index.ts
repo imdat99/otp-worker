@@ -4,6 +4,7 @@ import { OtpService } from './services/otp'
 import { generateOtpSchema, verifyOtpSchema } from './schemas/otp.schema'
 import { validateRequest } from './middleware/validator'
 import { cache } from 'hono/cache'
+import { sendOtp } from './services/sendOtp'
 
 type Bindings = {
     UPSTASH_REDIS_REST_URL: string
@@ -86,31 +87,11 @@ app.post('/api/otp/generate', validateRequest(generateOtpSchema), async (c) => {
 
         // Trong thực tế, bạn sẽ gửi OTP qua email hoặc SMS ở đây
         // Background task cho việc gửi email/SMS (không block request)
-        c.executionCtx.waitUntil(
-            Promise.resolve().then(async () => {
-                // Code gửi email/SMS sẽ ở đây
-                // sendOtpNotification(identifier, type, otp);
-            })
-        )
+        sendOtp(c, identifier, type, otp)
 
         // Đợi kết quả của expiresIn
         const expiresIn = await expiresInPromise
-        if (type === 'email') {
-            // Thực hiện gửi email với mã OTP
-            fetch(c.env.MAILER_URI, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    to: identifier, // Giả sử identifier là email
-                    subject: '[Xemdi]: Mã bảo mật của bạn',
-                    text: String(otp), // Chỉ trả về OTP trong môi trường phát triển/test
-                }),
-            }).catch((error) => {
-                console.error('Error sending OTP email:', error)
-            })
-        }
+
         return c.json({
             success: true,
             message: 'Mã OTP đã được tạo thành công',
